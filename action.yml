@@ -1,15 +1,13 @@
 name: "Sideband Library Publish"
 description: "Incrementally sync a folder of per-part .SchLib/.PcbLib to the Sideband catalog (add new, delete removed, skip existing)."
 inputs:
-  slug:        { description: "Catalog library slug",                 required: true }
-  org:         { description: "GitHub-style org (identity only)",      required: true }
-  repo:        { description: "GitHub-style repo (identity only)",     required: true }
-  source-dir:  { description: "Folder of per-part .SchLib/.PcbLib",    required: true }
-  api-url:     { description: "sideband-app base URL (renders)",       required: true }
-  catalog-url: { description: "website catalog base URL",              required: true }
-  token:       { description: "libraries:write publish token",         required: true }
-  max-per-run: { description: "Cap new items per run (0 = no cap)",    required: false, default: "0" }
-  glb:         { description: "Tessellate 3D bodies",                  required: false, default: "true" }
+  slug:        { description: "Catalog library slug",              required: true }
+  org:         { description: "GitHub-style org (identity only)",   required: true }
+  repo:        { description: "GitHub-style repo (identity only)",  required: true }
+  source-dir:  { description: "Folder of per-part .SchLib/.PcbLib", required: true }
+  catalog-url: { description: "Website catalog base URL",           required: true }
+  token:       { description: "libraries:write publish token",      required: true }
+  max-per-run: { description: "Cap new items per run (0 = no cap)", required: false, default: "0" }
 runs:
   using: composite
   steps:
@@ -24,8 +22,6 @@ runs:
         ORG: ${{ inputs.org }}
         REPO: ${{ inputs.repo }}
         SOURCE_DIR: ${{ inputs.source-dir }}
-        SIDEBAND_API_URL: ${{ inputs.api-url }}
         SIDEBAND_CATALOG_URL: ${{ inputs.catalog-url }}
         SIDEBAND_PUBLISH_TOKEN: ${{ inputs.token }}
         MAX_PER_RUN: ${{ inputs.max-per-run }}
-        GLB: ${{ inputs.glb }}
