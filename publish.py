@@ -65,8 +65,8 @@ def _ingest_one(path):
             if r.ok:
                 return True, fn
             last = f"{r.status_code} {r.text[:150]}"
-            if r.status_code not in (429, 502, 503, 504):
-                break  # 4xx won't improve on retry
+            if r.status_code not in (429, 500, 502, 503, 504):
+                break  # 4xx won't improve on retry; 5xx are often transient
         except Exception as e:
             last = str(e)[:150]
         time.sleep(min(60, 2 ** attempt) + random.random())  # exponential backoff + jitter
@@ -85,8 +85,14 @@ def publish(files):
     print(f"  published {ok}/{total}", flush=True)
     for e in errs[:10]:
         print("  !", e, flush=True)
+    # Tolerate an isolated transient miss: with incremental publishing a part that
+    # fails this run is simply still "new" next run and gets retried. Only fail the
+    # run when a meaningful fraction breaks (signals a systemic problem).
+    tolerance = max(int(os.environ.get("FAIL_TOLERANCE", "10") or 10), int(total * 0.02))
+    if len(errs) > tolerance:
+        sys.exit(f"{len(errs)}/{total} ingest failures (> tolerance {tolerance})")
     if errs:
-        sys.exit(f"{len(errs)} ingest failures")
+        print(f"  tolerated {len(errs)} transient failure(s); they retry next run", flush=True)
 
 def delete(ids):
     for iid in ids:
