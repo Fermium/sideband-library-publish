@@ -10,7 +10,8 @@ The website's ingest endpoint owns rendering (it calls the Altium processor); th
 just diffs + ships bytes. Library metadata (title/description/author/about_md) is
 admin-owned — ingest only ensures org/repo. One file == one part.
 """
-import os, re, sys, glob, json, time
+import os, re, sys, glob, json, time, urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 import requests
 
 CATALOG = os.environ["SIDEBAND_CATALOG_URL"].rstrip("/")
@@ -47,24 +48,39 @@ def existing_ids():
         if not cursor:
             return ids
 
+def _ingest_one(path):
+    fn = os.path.basename(path)
+    cat = os.path.basename(os.path.dirname(path))
+    qs = urllib.parse.urlencode({"file": fn, "category": cat, "org": ORG, "repo": REPO})
+    url = f"{CATALOG}/api/libraries/{SLUG}/ingest?{qs}"
+    data = open(path, "rb").read()
+    last = ""
+    for _ in range(3):
+        try:
+            r = requests.post(url, data=data, headers={**AUTH, "Content-Type": "application/octet-stream"}, timeout=900)
+            if r.ok:
+                return True, fn
+            last = f"{r.status_code} {r.text[:150]}"
+        except Exception as e:
+            last = str(e)[:150]
+        time.sleep(3)
+    return False, f"{fn}: {last}"
+
 def publish(files):
-    for i in range(0, len(files), BATCH):
-        chunk = files[i:i + BATCH]
-        meta = {os.path.basename(f): {"category": os.path.basename(os.path.dirname(f))} for f in chunk}
-        mp = [("spec", (None, json.dumps({"org": ORG, "repo": REPO, "items": meta})))]
-        for f in chunk:
-            mp.append(("files", (os.path.basename(f), open(f, "rb").read(), "application/octet-stream")))
-        for attempt in range(3):
-            try:
-                r = requests.post(f"{CATALOG}/api/libraries/{SLUG}/ingest", files=mp, headers=AUTH, timeout=2400)
-                if r.ok:
-                    print(f"  + batch {i//BATCH+1}: +{r.json().get('published', 0)}", flush=True); break
-                print(f"  ! batch {i//BATCH+1}: {r.status_code} {r.text[:200]}", flush=True)
-            except Exception as e:
-                print(f"  ! batch {i//BATCH+1} attempt {attempt+1}: {e}", flush=True)
-            time.sleep(5)
-        else:
-            sys.exit(f"batch {i//BATCH+1} failed after 3 attempts")
+    ok, errs, total = 0, [], len(files)
+    with ThreadPoolExecutor(max_workers=int(os.environ.get("CONCURRENCY", "6") or 6)) as ex:
+        for good, msg in ex.map(_ingest_one, files):
+            if good:
+                ok += 1
+            else:
+                errs.append(msg)
+            if (ok + len(errs)) % 50 == 0:
+                print(f"  ...{ok + len(errs)}/{total} ({ok} ok)", flush=True)
+    print(f"  published {ok}/{total}", flush=True)
+    for e in errs[:10]:
+        print("  !", e, flush=True)
+    if errs:
+        sys.exit(f"{len(errs)} ingest failures")
 
 def delete(ids):
     for iid in ids:
