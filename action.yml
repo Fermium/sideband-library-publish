@@ -9,6 +9,7 @@ inputs:
   token:       { description: "libraries:write publish token",      required: true }
   max-per-run: { description: "Cap new items per run (0 = no cap)", required: false, default: "0" }
   expected-ids: { description: "Path to a file of every id that should exist (incremental-convert mode); removals diff against this instead of source-dir", required: false, default: "" }
+  reingest-existing: { description: "Re-ingest (upsert) EVERY source part incl. ids already in the catalog — one-time backfill to reapply changed conversion logic. Requires source-dir to hold the full corpus.", required: false, default: "false" }
 runs:
   using: composite
   steps:
@@ -27,3 +28,4 @@ runs:
         SIDEBAND_PUBLISH_TOKEN: ${{ inputs.token }}
         MAX_PER_RUN: ${{ inputs.max-per-run }}
         EXPECTED_IDS_FILE: ${{ inputs.expected-ids }}
+        REINGEST_EXISTING: ${{ inputs.reingest-existing }}
