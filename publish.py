@@ -21,6 +21,10 @@ ORG     = os.environ.get("ORG", "")
 REPO    = os.environ.get("REPO", SLUG)
 SRC     = os.environ["SOURCE_DIR"]
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "0") or 0)   # 0 = no cap
+# Incremental-convert mode: SRC holds only the newly-converted chunk, so removals
+# must be computed against the FULL upstream set, not against SRC. This file lists
+# every id that SHOULD exist; anything in the catalog but not here is deleted.
+EXPECTED_IDS_FILE = os.environ.get("EXPECTED_IDS_FILE", "")
 BATCH   = int(os.environ.get("BATCH", "40") or 40)
 AUTH    = {"Authorization": f"Bearer {TOKEN}"}
 
@@ -93,7 +97,11 @@ def main():
     by_id = {item_id(f): f for f in list_source()}
     have = existing_ids()
     new = [i for i in by_id if i not in have]
-    removed = [i for i in have if i not in by_id]
+    if EXPECTED_IDS_FILE and os.path.exists(EXPECTED_IDS_FILE):
+        expected = set(open(EXPECTED_IDS_FILE).read().split())
+        removed = [i for i in have if i not in expected]  # full-upstream diff (chunked convert)
+    else:
+        removed = [i for i in have if i not in by_id]      # SRC is the full set
     print(f"[{SLUG}] source={len(by_id)} catalog={len(have)} new={len(new)} removed={len(removed)}", flush=True)
     if MAX_PER_RUN and len(new) > MAX_PER_RUN:
         print(f"  capped: {MAX_PER_RUN}/{len(new)} new this run; rest next run", flush=True)
