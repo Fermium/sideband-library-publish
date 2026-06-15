@@ -10,7 +10,7 @@ The website's ingest endpoint owns rendering (it calls the Altium processor); th
 just diffs + ships bytes. Library metadata (title/description/author/about_md) is
 admin-owned — ingest only ensures org/repo. One file == one part.
 """
-import os, re, sys, glob, json, time, urllib.parse
+import os, re, sys, glob, json, time, random, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import requests
 
@@ -55,15 +55,17 @@ def _ingest_one(path):
     url = f"{CATALOG}/api/libraries/{SLUG}/ingest?{qs}"
     data = open(path, "rb").read()
     last = ""
-    for _ in range(3):
+    for attempt in range(6):
         try:
             r = requests.post(url, data=data, headers={**AUTH, "Content-Type": "application/octet-stream"}, timeout=900)
             if r.ok:
                 return True, fn
             last = f"{r.status_code} {r.text[:150]}"
+            if r.status_code not in (429, 502, 503, 504):
+                break  # 4xx won't improve on retry
         except Exception as e:
             last = str(e)[:150]
-        time.sleep(3)
+        time.sleep(min(60, 2 ** attempt) + random.random())  # exponential backoff + jitter
     return False, f"{fn}: {last}"
 
 def publish(files):
