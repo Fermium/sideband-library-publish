@@ -20,10 +20,10 @@ SLUG    = os.environ["SLUG"]
 ORG     = os.environ.get("ORG", "")
 REPO    = os.environ.get("REPO", SLUG)
 SRC     = os.environ["SOURCE_DIR"]
-# Optional base URL for a per-part download OVERRIDE. When set, each part is
-# ingested with download_url = "<base>/<repo-relative path>", so its Download
-# button links to the exact upstream file instead of serving our hosted copy.
-DOWNLOAD_URL_BASE = os.environ.get("DOWNLOAD_URL_BASE", "").rstrip("/")
+# Optional per-part download OVERRIDE: a full URL. When set, every part is ingested
+# with this download_url, so its Download button links here instead of serving our
+# hosted copy (e.g. the upstream GitHub repo).
+DOWNLOAD_URL = os.environ.get("DOWNLOAD_URL", "").strip()
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "0") or 0)   # 0 = no cap
 # Incremental-convert mode: SRC holds only the newly-converted chunk, so removals
 # must be computed against the FULL upstream set, not against SRC. This file lists
@@ -64,9 +64,8 @@ def _ingest_one(path):
     fn = os.path.basename(path)
     cat = os.path.basename(os.path.dirname(path))
     params = {"file": fn, "category": cat, "org": ORG, "repo": REPO}
-    if DOWNLOAD_URL_BASE:
-        rel = os.path.relpath(path, SRC).replace(os.sep, "/")
-        params["download_url"] = f"{DOWNLOAD_URL_BASE}/{rel}"  # raw; the catalog encodes on use
+    if DOWNLOAD_URL:
+        params["download_url"] = DOWNLOAD_URL
     qs = urllib.parse.urlencode(params)
     url = f"{CATALOG}/api/libraries/{SLUG}/ingest?{qs}"
     data = open(path, "rb").read()
