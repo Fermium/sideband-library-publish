@@ -10,6 +10,7 @@ inputs:
   max-per-run: { description: "Cap new items per run (0 = no cap)", required: false, default: "0" }
   expected-ids: { description: "Path to a file of every id that should exist (incremental-convert mode); removals diff against this instead of source-dir", required: false, default: "" }
   reingest-existing: { description: "Re-ingest (upsert) EVERY source part incl. ids already in the catalog — one-time backfill to reapply changed conversion logic. Requires source-dir to hold the full corpus.", required: false, default: "false" }
+  download-url-base: { description: "Base URL for a per-part download override, e.g. https://github.com/Org/Repo/blob/master . When set, each part is ingested with download_url=<base>/<repo-relative path> and its Download button links to the exact upstream file.", required: false, default: "" }
 runs:
   using: composite
   steps:
@@ -29,3 +30,4 @@ runs:
         MAX_PER_RUN: ${{ inputs.max-per-run }}
         EXPECTED_IDS_FILE: ${{ inputs.expected-ids }}
         REINGEST_EXISTING: ${{ inputs.reingest-existing }}
+        DOWNLOAD_URL_BASE: ${{ inputs.download-url-base }}
